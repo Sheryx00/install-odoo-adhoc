@@ -1,2 +1,3 @@
 # install-odoo-adhoc
-Folk of Yenthe666/InstallScript with Adhoc's modules for Argentina.
+Folk de [Yenthe666/InstallScript](https://github.com/Yenthe666/InstallScript/) con los módulos de Adhoc, para la localización de Argentina.
+
