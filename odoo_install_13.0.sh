@@ -166,7 +166,7 @@ if [ $IS_ENTERPRISE = "True" ]; then
     sudo su root -c "printf 'addons_path=${OE_HOME}/enterprise/addons,${OE_HOME_EXT}/addons\n' >> /etc/${OE_CONFIG}.conf"
 else
 # Added new paths for Adhoc's modules 
-    sudo su root -c "printf 'addons_path=${OE_HOME_EXT}/addons,$OE_ADDONS,$OE_ADDONS/account-financial-tools-13.0,$OE_ADDONS/account-payment-13.0,$OE_ADDONS/aeroo_reports-13.0,$OE_ADDONS/argentina-reporting-13.0,$OE_ADDONS/argentina-sale-13.0,$OE_ADDONS/miscellaneous-13.0,$OE_ADDONS/odoo-argentina-13.0,$OE_ADDONS/partner_identification,$OE_ADDONS/reporting-engine-13.0,$OE_ADDONS/stock-13.0' >> /etc/${OE_CONFIG}.conf"
+    sudo su root -c "printf 'addons_path=${OE_HOME_EXT}/addons,$OE_ADDONS,$OE_ADDONS/account-financial-tools-13.0,$OE_ADDONS/account-payment-13.0,$OE_ADDONS/aeroo_reports-13.0,$OE_ADDONS/argentina-reporting-13.0,$OE_ADDONS/argentina-sale-13.0,$OE_ADDONS/miscellaneous-13.0,$OE_ADDONS/odoo-argentina-13.0,$OE_ADDONS/partner_identification,$OE_ADDONS/reporting-engine-13.0,$OE_ADDONS/stock-13.0,$OE_ADDONS/odoo-argentina-ce-13.0' >> /etc/${OE_CONFIG}.conf"
 fi
 
 sudo chown $OE_USER:$OE_USER /etc/${OE_CONFIG}.conf
@@ -271,6 +271,7 @@ sudo -u $OE_USER wget https://github.com/ingadhoc/argentina-reporting/archive/13
 sudo -u $OE_USER wget https://github.com/ingadhoc/reporting-engine/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-reporting-engine.zip";
 sudo -u $OE_USER wget https://github.com/ingadhoc/argentina-sale/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-argentina-sale.zip";
 sudo -u $OE_USER wget https://github.com/ingadhoc/stock/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-stock.zip";
+sudo -u $OE_USER wget 'https://codeload.github.com/ingadhoc/odoo-argentina-ce/zip/13.0' -O "$OE_ADDONS/odoo-argentina-ce-13.0.zip";
 
 # Extract the modules
 echo -e "\n${GREEN}[+] Extract ADHOC modules ${NC}"
@@ -280,15 +281,15 @@ sudo -u $OE_USER rm $OE_ADDONS/*.zip;
 # Install dependencies
 echo -e "\n${GREEN}[+] Install dependencies ${NC}"
 cat << EOF > requeriments.txt
-git+https://github.com/edgewall/genshi@stable/0.7.x
-# git+https://github.com/aeroo/aeroolib.git
-# waiting for PR https://github.com/aeroo/aeroolib/pull/12
+pyOpenSSL
+M2Crypto
+httplib2>=0.7
 git+https://github.com/adhoc-dev/aeroolib@master-fix-ods
 git+https://github.com/aeroo/currency2text.git
-httplib2>=0.7
-git+https://github.com/pysimplesoap/pysimplesoap@a330d9c4af1b007fe1436f979ff0b9f66613136e
+git+https://github.com/edgewall/genshi@stable/0.7.x
 git+https://github.com/ingadhoc/pyafipws@py3k
 git+https://github.com/OCA/openupgradelib/@master
+git+https://github.com/pysimplesoap/pysimplesoap@a330d9c4af1b007fe1436f979ff0b9f66613136e
 pycups  # TODO this one should go in oca/report-print-send
 jsonrpc2
 daemonize
