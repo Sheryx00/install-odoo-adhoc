@@ -1,16 +1,15 @@
 #!/bin/bash
 ################################################################################
-# Script for installing Odoo with Adhoc's addons on Ubuntu <= 20.4 (could be used for other version too)
-# Author: Yenthe Van Ginneken
-# Folk: Gerardo Schrott
-#-------------------------------------------------------------------------------
-# This script will install Odoo on your Ubuntu server <= 20.04. It can install multiple Odoo instances
-# in one Ubuntu because of the different xmlrpc_ports
-################################################################################
+# Script for installing Odoo with Adhoc's addons on Ubuntu <= 20.4 (could be used for other version)
+# 
+# Fork of Yenthe Van Ginneken's repository
+
+# COLORS
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
+# VARIABLES
 OE_USER="odoo"
 OE_HOME="/$OE_USER"
 OE_HOME_EXT="/$OE_USER/${OE_USER}-server"
@@ -18,6 +17,7 @@ OE_ADDONS="$OE_HOME/custom/addons"
 # The default port where this Odoo instance will run under (provided you use the command -c in the terminal)
 # Set to true if you want to install it, false if you don't need it or have it already installed.
 INSTALL_WKHTMLTOPDF="True"
+INSTALL_PYAFIPWS="True"
 # Set the default Odoo port (you still have to use -c /etc/odoo-server.conf for example to use this.)
 OE_PORT="8069"
 # Choose the Odoo version which you want to install. For example: 13.0, 12.0, 11.0 or saas-18. When using 'master' the master version will be installed.
@@ -37,24 +37,25 @@ WEBSITE_NAME="_"
 # Set the default Odoo longpolling port (you still have to use -c /etc/odoo-server.conf for example to use this.)
 LONGPOLLING_PORT="8072"
 # Set to "True" to install certbot and have ssl enabled, "False" to use http
-ENABLE_SSL="True"
+ENABLE_SSL="False"
 # Provide Email to register ssl certificate
 ADMIN_EMAIL="odoo@example.com"
+
 ##
 ###  WKHTMLTOPDF download links
 ## === Ubuntu Trusty x64 & x32 === (for other distributions please replace these two links,
 ## in order to have correct version of wkhtmltopdf installed, for a danger note refer to
 ## https://github.com/odoo/odoo/wiki/Wkhtmltopdf ):
 ## https://www.odoo.com/documentation/13.0/setup/install.html#debian-ubuntu
-
 WKHTMLTOX_X64=https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.5/wkhtmltox_0.12.5-1.trusty_amd64.deb
 WKHTMLTOX_X32=https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.5/wkhtmltox_0.12.5-1.trusty_i386.deb
+
 #--------------------------------------------------
 # Update Server
 #--------------------------------------------------
 echo -e "\n${GREEN}[+] Update Server ${NC}"
 # universe package is for Ubuntu 18.x
-sudo add-apt-repository universe
+# sudo add-apt-repository universe
 # libpng12-0 dependency for wkhtmltopdf
 sudo add-apt-repository "deb http://mirrors.kernel.org/ubuntu/ xenial main"
 sudo add-apt-repository ppa:linuxuprising/libpng12
@@ -64,16 +65,16 @@ sudo apt-get upgrade -y
 #--------------------------------------------------
 # Install PostgreSQL Server & Odoo Dependencies
 #--------------------------------------------------
-echo -e "\n${GREEN}[+] Installing PostgreSQL, Python 3 & pip3 ${NC}"
-sudo apt-get -y install build-essential default-jre git gdebi nodejs npm node-less libcups2-dev libjpeg-dev libldap2-dev libpng12-0 libsasl2-dev libxslt-dev libzip-dev postgresql-server-dev-all python3 python3-dev postgresql python3-lxml python3-pip python3-setuptools python3-uno python3-venv python3-wheel unoconv unzip
+echo -e "\n${GREEN}[+] Install PostgreSQL, Python 3 & pip3 ${NC}"
+sudo apt-get -y install build-essential default-jre git gcc gdebi nodejs npm node-less libcups2-dev libjpeg-dev libldap2-dev libpng12-0 libsasl2-dev libssl-dev libxslt-dev libzip-dev postgresql-server-dev-all python3 python3-dev postgresql python3-dev python3-lxml python3-pip python3-setuptools python3-uno python3-venv python3-wheel unoconv unzip swig
 
-echo -e "\n${GREEN}[+] Creating the ODOO PostgreSQL User ${NC}"
+echo -e "\n${GREEN}[+] Create the ODOO PostgreSQL User ${NC}"
 sudo su - postgres -c "createuser -s $OE_USER" 2> /dev/null || true
 
 echo -e "\n${GREEN}[+] Install python packages ${NC}"
 sudo -H pip3 install -r https://github.com/odoo/odoo/raw/${OE_VERSION}/requirements.txt
 
-echo -e "\n${GREEN}[+] Installing nodeJS NPM and rtlcss for LTR support ${NC}"
+echo -e "\n${GREEN}[+] Install nodeJS NPM and rtlcss for LTR support ${NC}"
 # sudo apt-get install nodejs npm -y
 sudo npm install -g rtlcss
 
@@ -96,7 +97,20 @@ else
   echo "Wkhtmltopdf isn't installed due to the choice of the user!"
 fi
 
-echo -e "\n${GREEN}[+] Create ODOO system user ${NC}"
+#--------------------------------------------------
+# Install pyafipws
+#--------------------------------------------------
+if [ $INSTALL_PYAFIPWS = "True" ]; then
+  echo -e "\n${GREEN}[+] Install pyafipws with python3 ${NC}"
+  git clone https://github.com/pyar/pyafipws.git -b py3k
+  sudo python3 ./pyafipws/setup.py install
+  rm -rf pyafipws
+else
+  echo "\n${RED}[-] pyafipws isn't installed due to the choice of the user!${NC}"
+
+fi
+
+echo -e "\n${GREEN}[+] Create ODOO user ${NC}"
 sudo adduser --system --quiet --shell=/bin/bash --home=$OE_HOME --gecos 'ODOO' --group $OE_USER
 #The user should also be added to the sudo'ers group.
 sudo adduser $OE_USER sudo
@@ -108,7 +122,7 @@ sudo chown $OE_USER:$OE_USER /var/log/$OE_USER
 #--------------------------------------------------
 # Install ODOO
 #--------------------------------------------------
-echo -e "\n${GREEN}[+] Installing ODOO Server ${NC}"
+echo -e "\n${GREEN}[+] Install ODOO Server ${NC}"
 sudo git clone --depth 1 --branch $OE_VERSION https://www.github.com/odoo/odoo $OE_HOME_EXT/
 
 if [ $IS_ENTERPRISE = "True" ]; then
@@ -145,7 +159,48 @@ sudo chown -R $OE_USER:$OE_USER $OE_HOME/*
 echo -e "\n${GREEN}[+] Create server config file ${NC}"
 sudo touch /etc/${OE_CONFIG}.conf
 
-echo -e "\n${GREEN}[+] Creating server config file ${NC}"
+#--------------------------------------------------
+# Install ADHOC modules
+#--------------------------------------------------
+
+# Download Adhoc's modules
+echo -e "\n${GREEN}[+] Download ADHOC modules ${NC}"
+sudo -u $OE_USER wget https://github.com/ingadhoc/odoo-argentina/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-odoo-argentina.zip";
+sudo -u $OE_USER wget https://github.com/ingadhoc/account-financial-tools/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-account-financial-tools.zip";
+sudo -u $OE_USER wget https://github.com/ingadhoc/account-payment/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-account-payment.zip";
+sudo -u $OE_USER wget https://github.com/ingadhoc/aeroo_reports/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-aeroo_reports.zip";
+sudo -u $OE_USER wget https://github.com/ingadhoc/miscellaneous/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-miscellaneous.zip";
+sudo -u $OE_USER wget https://github.com/ingadhoc/argentina-reporting/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-argentina-reporting.zip";
+sudo -u $OE_USER wget https://github.com/ingadhoc/reporting-engine/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-reporting-engine.zip";
+sudo -u $OE_USER wget https://github.com/ingadhoc/argentina-sale/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-argentina-sale.zip";
+sudo -u $OE_USER wget https://github.com/ingadhoc/stock/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-stock.zip";
+sudo -u $OE_USER wget 'https://codeload.github.com/ingadhoc/odoo-argentina-ce/zip/13.0' -O "$OE_ADDONS/odoo-argentina-ce-13.0.zip";
+sudo -u $OE_USER wget 'https://codeload.github.com/OCA/web/zip/13.0' -O "$OE_ADDONS/web-13.0.zip";
+sudo -u $OE_USER wget 'https://codeload.github.com/OCA/web/zip/13.0' -O "$OE_ADDONS/web-13.0.zip";
+sudo -u $OE_USER wget 'https://codeload.github.com/OCA/sale-workflow/zip/13.0' -O "$OE_ADDONS/sale-workflow-13.0.zip";
+sudo -u $OE_USER wget 'https://codeload.github.com/OCA/partner-contact/zip/13.0' -O "$OE_ADDONS/partner-contact-13.0.zip";
+
+# Extract the modules
+echo -e "\n${GREEN}[+] Extract ADHOC modules ${NC}"
+sudo -u $OE_USER unzip "$OE_ADDONS/*.zip" -d "$OE_ADDONS/";
+sudo -u $OE_USER rm $OE_ADDONS/*.zip;
+
+# Install dependencies
+echo -e "\n${GREEN}[+] Install dependencies ${NC}"
+cat << EOF > requeriments.txt
+jsonrpc2
+daemonize
+EOF
+
+find "$OE_ADDONS/" -name requirements.txt -exec grep -v '#' {} \; | sort | uniq >> requeriments.txt
+sudo -u $OE_USER pip3 install -r requeriments.txt;
+rm requeriments.txt;
+
+
+#--------------------------------------------------
+# Create server config file
+#--------------------------------------------------
+echo -e "\n${GREEN}[+] Create server config file ${NC}"
 sudo su root -c "printf '[options] \n; This is the password that allows database operations:\n' >> /etc/${OE_CONFIG}.conf"
 if [ $GENERATE_RANDOM_PASSWORD = "True" ]; then
     echo -e "\n ${GREEN} [+] Generating random admin password ${NC}"
@@ -165,9 +220,9 @@ sudo su root -c "printf 'logfile = /var/log/${OE_USER}/${OE_CONFIG}.log\n' >> /e
 if [ $IS_ENTERPRISE = "True" ]; then
     sudo su root -c "printf 'addons_path=${OE_HOME}/enterprise/addons,${OE_HOME_EXT}/addons\n' >> /etc/${OE_CONFIG}.conf"
 else
-# Added new paths for Adhoc's modules 
-    sudo su root -c "printf 'addons_path=${OE_HOME_EXT}/addons,$OE_ADDONS,$OE_ADDONS/account-financial-tools-13.0,$OE_ADDONS/account-payment-13.0,$OE_ADDONS/aeroo_reports-13.0,$OE_ADDONS/argentina-reporting-13.0,$OE_ADDONS/argentina-sale-13.0,$OE_ADDONS/miscellaneous-13.0,$OE_ADDONS/odoo-argentina-13.0,$OE_ADDONS/partner_identification,$OE_ADDONS/reporting-engine-13.0,$OE_ADDONS/stock-13.0,$OE_ADDONS/odoo-argentina-ce-13.0' >> /etc/${OE_CONFIG}.conf"
+    sudo su root -c "printf 'addons_path=${OE_HOME_EXT}/addons,$OE_ADDONS,$OE_ADDONS/account-financial-tools-13.0,$OE_ADDONS/account-payment-13.0,$OE_ADDONS/aeroo_reports-13.0,$OE_ADDONS/argentina-reporting-13.0,$OE_ADDONS/argentina-sale-13.0,$OE_ADDONS/miscellaneous-13.0,$OE_ADDONS/odoo-argentina-13.0,$OE_ADDONS/odoo-argentina-ce-13.0,$OE_ADDONS/partner-contact-13.0,$OE_ADDONS/reporting-engine-13.0,$OE_ADDONS/sale-workflow-13.0,$OE_ADDONS/stock-13.0,$OE_ADDONS/web-13.0' >> ${OE_CONFIG}.conf"
 fi
+
 
 sudo chown $OE_USER:$OE_USER /etc/${OE_CONFIG}.conf
 sudo chmod 640 /etc/${OE_CONFIG}.conf
@@ -255,55 +310,6 @@ sudo chown root: /etc/init.d/$OE_CONFIG
 
 echo -e "\n${GREEN}[+] Start ODOO on Startup ${NC}"
 sudo update-rc.d $OE_CONFIG defaults
-
-#--------------------------------------------------
-# Install ADHOC modules
-#--------------------------------------------------
-
-# Download Adhoc's modules
-echo -e "\n${GREEN}[+] Download ADHOC modules ${NC}"
-sudo -u $OE_USER wget https://github.com/ingadhoc/odoo-argentina/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-odoo-argentina.zip";
-sudo -u $OE_USER wget https://github.com/ingadhoc/account-financial-tools/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-account-financial-tools.zip";
-sudo -u $OE_USER wget https://github.com/ingadhoc/account-payment/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-account-payment.zip";
-sudo -u $OE_USER wget https://github.com/ingadhoc/aeroo_reports/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-aeroo_reports.zip";
-sudo -u $OE_USER wget https://github.com/ingadhoc/miscellaneous/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-miscellaneous.zip";
-sudo -u $OE_USER wget https://github.com/ingadhoc/argentina-reporting/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-argentina-reporting.zip";
-sudo -u $OE_USER wget https://github.com/ingadhoc/reporting-engine/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-reporting-engine.zip";
-sudo -u $OE_USER wget https://github.com/ingadhoc/argentina-sale/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-argentina-sale.zip";
-sudo -u $OE_USER wget https://github.com/ingadhoc/stock/archive/13.0.zip -O "$OE_ADDONS/ingadhoc-stock.zip";
-sudo -u $OE_USER wget 'https://codeload.github.com/ingadhoc/odoo-argentina-ce/zip/13.0' -O "$OE_ADDONS/odoo-argentina-ce-13.0.zip";
-
-# Extract the modules
-echo -e "\n${GREEN}[+] Extract ADHOC modules ${NC}"
-sudo -u $OE_USER unzip "$OE_ADDONS/*.zip" -d "$OE_ADDONS/";
-sudo -u $OE_USER rm $OE_ADDONS/*.zip;
-
-# Install dependencies
-echo -e "\n${GREEN}[+] Install dependencies ${NC}"
-cat << EOF > requeriments.txt
-pyOpenSSL
-M2Crypto
-httplib2>=0.7
-git+https://github.com/adhoc-dev/aeroolib@master-fix-ods
-git+https://github.com/aeroo/currency2text.git
-git+https://github.com/edgewall/genshi@stable/0.7.x
-git+https://github.com/ingadhoc/pyafipws@py3k
-git+https://github.com/OCA/openupgradelib/@master
-git+https://github.com/pysimplesoap/pysimplesoap@a330d9c4af1b007fe1436f979ff0b9f66613136e
-pycups  # TODO this one should go in oca/report-print-send
-jsonrpc2
-daemonize
-EOF
-
-sudo -u $OE_USER pip3 install -r requeriments.txt;
-rm requeriments.txt;
-
-# Install partner identification
-echo -e "\n${GREEN}[+] Install partner identification ${NC}"
-curl 'https://codeload.github.com/OCA/partner-contact/zip/13.0' --output 'partner-contact-13.0.zip';
-unzip partner-contact-13.0.zip "partner-contact-13.0/partner_identification/*";
-sudo -u $OE_USER cp -r partner-contact-13.0/partner_identification $OE_ADDONS;
-rm -rf partner-contact-13.0*
 
 #--------------------------------------------------
 # Install Nginx if needed
