@@ -9,29 +9,37 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-# VARIABLES
+#--------------------------------------------------
+# ODOO CONFIGURATION
+#--------------------------------------------------
 OE_USER="odoo"
 OE_HOME="/$OE_USER"
 OE_HOME_EXT="/$OE_USER/${OE_USER}-server"
 OE_ADDONS="$OE_HOME/custom/addons"
-# The default port where this Odoo instance will run under (provided you use the command -c in the terminal)
-# Set to true if you want to install it, false if you don't need it or have it already installed.
-INSTALL_WKHTMLTOPDF="True"
-INSTALL_PYAFIPWS="True"
-# Set the default Odoo port (you still have to use -c /etc/odoo-server.conf for example to use this.)
 OE_PORT="8069"
 # Choose the Odoo version which you want to install. For example: 13.0, 12.0, 11.0 or saas-18. When using 'master' the master version will be installed.
 # IMPORTANT! This script contains extra libraries that are specifically needed for Odoo 13.0
 OE_VERSION="13.0"
 # Set this to True if you want to install the Odoo enterprise version!
 IS_ENTERPRISE="False"
-# Set this to True if you want to install Nginx!
-INSTALL_NGINX="False"
 # Set the superadmin password - if GENERATE_RANDOM_PASSWORD is set to "True" we will automatically generate a random password, otherwise we use this one
 OE_SUPERADMIN="admin"
 # Set to "True" to generate a random password, "False" to use the variable in OE_SUPERADMIN
 GENERATE_RANDOM_PASSWORD="True"
 OE_CONFIG="${OE_USER}-server"
+
+#--------------------------------------------------
+# LIBRARIES CONFIGURATION
+#--------------------------------------------------
+# Set to true if you want to install it, false if you don't need it or have it already installed.
+INSTALL_WKHTMLTOPDF="True"
+INSTALL_PYAFIPWS="True"
+
+#--------------------------------------------------
+# PROXY AND DNS CONFIGURATION
+#--------------------------------------------------
+# Set this to True if you want to install Nginx!
+INSTALL_NGINX="False"
 # Set the website name
 WEBSITE_NAME="_"
 # Set the default Odoo longpolling port (you still have to use -c /etc/odoo-server.conf for example to use this.)
@@ -41,7 +49,10 @@ ENABLE_SSL="False"
 # Provide Email to register ssl certificate
 ADMIN_EMAIL="odoo@example.com"
 
-##
+#--------------------------------------------------
+# READY? ¡GO!
+#--------------------------------------------------
+
 ###  WKHTMLTOPDF download links
 ## === Ubuntu Trusty x64 & x32 === (for other distributions please replace these two links,
 ## in order to have correct version of wkhtmltopdf installed, for a danger note refer to
@@ -93,21 +104,9 @@ if [ $INSTALL_WKHTMLTOPDF = "True" ]; then
   sudo gdebi --n `basename $_url`
   sudo ln -s /usr/local/bin/wkhtmltopdf /usr/bin
   sudo ln -s /usr/local/bin/wkhtmltoimage /usr/bin
+  rm basename $_url
 else
   echo "Wkhtmltopdf isn't installed due to the choice of the user!"
-fi
-
-#--------------------------------------------------
-# Install pyafipws
-#--------------------------------------------------
-if [ $INSTALL_PYAFIPWS = "True" ]; then
-  echo -e "\n${GREEN}[+] Install pyafipws with python3 ${NC}"
-  git clone https://github.com/pyar/pyafipws.git -b py3k
-  sudo python3 ./pyafipws/setup.py install
-  rm -rf pyafipws
-else
-  echo "\n${RED}[-] pyafipws isn't installed due to the choice of the user!${NC}"
-
 fi
 
 echo -e "\n${GREEN}[+] Create ODOO user ${NC}"
@@ -180,6 +179,12 @@ sudo -u $OE_USER wget 'https://codeload.github.com/OCA/web/zip/13.0' -O "$OE_ADD
 sudo -u $OE_USER wget 'https://codeload.github.com/OCA/sale-workflow/zip/13.0' -O "$OE_ADDONS/sale-workflow-13.0.zip";
 sudo -u $OE_USER wget 'https://codeload.github.com/OCA/partner-contact/zip/13.0' -O "$OE_ADDONS/partner-contact-13.0.zip";
 
+# EXTRA MODULES SELECTED
+if [ $INSTALL_PYAFIPWS = "True" ]; then
+  echo -e "\n${GREEN}[+] Install pyafipws with python3 ${NC}"
+  sudo -u $OE_USER wget 'https://github.com/PyAr/pyafipws/archive/py3k.zip' -O "$OE_ADDONS/pyafipws.zip";
+fi
+
 # Extract the modules
 echo -e "\n${GREEN}[+] Extract ADHOC modules ${NC}"
 sudo -u $OE_USER unzip "$OE_ADDONS/*.zip" -d "$OE_ADDONS/";
@@ -194,6 +199,17 @@ EOF
 
 find "$OE_ADDONS/" -name requirements.txt -exec grep -v '#' {} \; | sort | uniq >> requeriments.txt
 sudo -u $OE_USER pip3 install -r requeriments.txt;
+
+# INSTALL PYAFIPWS 
+if [ $INSTALL_PYAFIPWS = "True" ]; then
+  cd $OE_ADDONS/pyafipws-py3k
+  sudo python3 ./setup.py install
+  sudo chown $OE_USER:$OE_USER -R .
+  cd -
+else
+  echo "\n${RED}[-] pyafipws isn't installed due to the choice of the user!${NC}"
+fi
+
 rm requeriments.txt;
 
 
@@ -217,12 +233,12 @@ fi
 
 sudo su root -c "printf 'logfile = /var/log/${OE_USER}/${OE_CONFIG}.log\n' >> /etc/${OE_CONFIG}.conf"
 
+OE_ADDONS_PATH=`for i in \`ls $OE_ADDONS\`; do echo -n ",$OE_ADDONS/$i";done`
 if [ $IS_ENTERPRISE = "True" ]; then
     sudo su root -c "printf 'addons_path=${OE_HOME}/enterprise/addons,${OE_HOME_EXT}/addons\n' >> /etc/${OE_CONFIG}.conf"
 else
-    sudo su root -c "printf 'addons_path=${OE_HOME_EXT}/addons,$OE_ADDONS,$OE_ADDONS/account-financial-tools-13.0,$OE_ADDONS/account-payment-13.0,$OE_ADDONS/aeroo_reports-13.0,$OE_ADDONS/argentina-reporting-13.0,$OE_ADDONS/argentina-sale-13.0,$OE_ADDONS/miscellaneous-13.0,$OE_ADDONS/odoo-argentina-13.0,$OE_ADDONS/odoo-argentina-ce-13.0,$OE_ADDONS/partner-contact-13.0,$OE_ADDONS/reporting-engine-13.0,$OE_ADDONS/sale-workflow-13.0,$OE_ADDONS/stock-13.0,$OE_ADDONS/web-13.0' >> ${OE_CONFIG}.conf"
+    sudo su root -c "printf 'addons_path=${OE_HOME_EXT}/addons,$OE_ADDONS${OE_ADDONS_PATH}\n' >> /etc/${OE_CONFIG}.conf"
 fi
-
 
 sudo chown $OE_USER:$OE_USER /etc/${OE_CONFIG}.conf
 sudo chmod 640 /etc/${OE_CONFIG}.conf
